@@ -1,0 +1,12 @@
+schemaVersion: 1
+order:
+  qty: 136
+  unit_price_eur: 19.99
+  revenue_eur: expr(order.qty * order.unit_price_eur)
+  revenue_eur_value: 2718.64
+  revenue_dkk: expr(round(ref("./fx.yaml#/rates/EURDKK") * order.revenue_eur_value, 2))
+  revenue_dkk_value: 20281.05
+summary:
+  label: Order total (DKK)
+  shown_value: ref("#/order/revenue_dkk_value")
+  shown_value_value: 0
