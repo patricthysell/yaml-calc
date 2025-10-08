@@ -21,6 +21,23 @@ npm run watch
 
 By default the engine processes all `data/**/*_calc.yaml` files. For each calc file it overwrites the matching `.yaml` file (e.g. `order_calc.yaml` → `order.yaml`).
 
+### Command-line options
+
+Need to tweak what gets processed? Pass flags after `--` when using the npm scripts:
+
+* `--pattern <glob>` – Override the glob passed to `globby`.
+  * `--pattern "data/**/*_calc.yaml"` (default)
+  * `--pattern "data/orders/**/*_calc.yaml"` – limit to a folder
+  * `--pattern "data/orders/order_calc.yaml"` – focus on a single calc file
+* `--watch` – Keep the process alive and watch the same glob for changes (already supplied in `npm run watch`).
+
+Example commands:
+
+```bash
+npm start -- --pattern "data/orders/**/*_calc.yaml"
+npm run watch -- --pattern "data/orders/order_calc.yaml"
+```
+
 ---
 
 ## Writing calculations
