@@ -15,11 +15,12 @@ export interface EvalContext {
 
 export interface TagHandler {
   readonly tag: string;
-  matches(node: any): boolean;
+  matches(node: any, pointer: string): boolean;
   collectDeps(args: {
     node: any;
     file: string;
     pointer: string;
+    targetPointer: string;
     readLocalByPointer: EvalContext["readLocalByPointer"];
     canonicalKey: EvalContext["canonicalKey"];
     resolveFile: EvalContext["resolveFile"];
@@ -28,7 +29,8 @@ export interface TagHandler {
     node: any;
     file: string;
     pointer: string;
+    targetPointer: string;
     ctx: EvalContext;
   }): any;
-  targetValuePointer(fieldPointer: string): string;
+  targetPointer(fieldPointer: string): string;
 }

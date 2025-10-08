@@ -1,7 +1,7 @@
 # YAML-Calc 🧮
 
 A tiny, extensible YAML calculator.
-Write formulas inline as `expr(...)` and let the engine keep `_value` siblings updated whenever you save files. Cross-file references automatically propagate.
+Write calculations once in companion `_calc.yaml` files and let the engine emit clean value-only `.yaml` siblings. Cross-file references automatically propagate and stay in sync.
 
 ---
 
@@ -19,84 +19,55 @@ Watch for changes:
 npm run watch
 ```
 
-By default the engine processes all `data/**/*.yaml`.
+By default the engine processes all `data/**/*_calc.yaml` files. For each calc file it overwrites the matching `.yaml` file (e.g. `order_calc.yaml` → `order.yaml`).
 
 ---
 
-## Writing expressions
+## Writing calculations
 
-Any field can contain an expression using the `expr(...)` form:
+Place your formulas in keys that end with `_calc`. The expression is the raw JavaScript you want to evaluate – no wrapper function required.
 
 ```yaml
 order:
   qty: 120
   unit_price_eur: 19.99
 
-  revenue_eur: expr(order.qty * order.unit_price_eur)
-  revenue_eur_value: 0
+  revenue_eur_calc: order.qty * order.unit_price_eur
+  revenue_dkk_calc: round(ref("./fx.yaml#/rates/EURDKK") * order.revenue_eur, 2)
 
-  revenue_dkk: expr(round(ref("./fx.yaml#/rates/EURDKK") * order.revenue_eur_value, 2))
-  revenue_dkk_value: 0
+summary:
+  label: Order total (DKK)
+  shown_value_calc: ref("#/order/revenue_dkk")
 ```
 
-👉 The calculator evaluates the expression and writes the result to the sibling with `_value` appended.
+👉 When the engine runs it evaluates each `_calc` key (top-to-bottom, respecting dependencies) and writes the resulting value to the sibling key with the suffix removed (`revenue_eur`, `revenue_dkk`, `shown_value`, …) **in the generated output file only**.
 
 ---
 
 ## Referencing other fields
 
-### Same file
+Inside a `_calc` expression you can mix normal identifiers with helper calls:
 
-```yaml
-foo: 10
-bar: expr(foo * 2)   # refers to another field in this file
-bar_value: 0
-```
+* **Same file** – reference previously declared values: `order.revenue_dkk_calc: round(order.revenue_eur * 7.46, 2)`
+* **Dot paths** – `order.revenue_eur`
+* **JSON Pointers** – `ref("#/order/qty")`
+* **Cross-file** – `ref("./fx.yaml#/rates/EURDKK")`
 
-### By JSON Pointer
-
-```yaml
-bar: expr(ref("#/foo") * 2)
-```
-
-### By dot path
-
-```yaml
-bar: expr(foo * 2)
-```
-
-### Other file
-
-```yaml
-eur_to_dkk: expr(ref("./fx.yaml#/rates/EURDKK"))
-eur_to_dkk_value: 0
-```
-
-Paths are resolved relative to the current file.
+Paths are resolved relative to the current calc file. When you reference a calculated value (either in the same file or another calc file) the engine automatically waits for the producing `_calc` field to finish before evaluating the dependent expression.
 
 ---
 
 ## Built-in helpers
 
-Inside `expr(...)` you can use:
+Inside a `_calc` value you can use the following helpers in addition to normal JavaScript operators (`+ - * / % ? :`, etc.):
 
-* `ref(path)`
-  Get a value by JSON Pointer, dot path, or cross-file path.
-  Examples:
-
+* `ref(path)` – Load a value by JSON Pointer, dot path, or cross-file path.
   * `ref("#/order/qty")`
   * `ref("order.qty")`
   * `ref("./fx.yaml#/rates/EURDKK")`
-
-* `round(x, n=0)`
-  Round `x` to `n` decimal places.
-
-* `sum(array)`
-  Sum all numbers in an array.
-
-* `min(a, b, ...)`, `max(a, b, ...)`
-
-You can mix helpers with normal JS operators: `+ - * / % ? :`.
+* `round(x, n = 0)` – Round `x` to `n` decimal places.
+* `sum(array)` – Sum all numbers in an array.
+* `min(a, b, …)`, `max(a, b, …)`
 
 ---
 
@@ -110,44 +81,50 @@ You can mix helpers with normal JS operators: `+ - * / % ? :`.
 
 ## Example
 
-**fx.yaml**
+**`fx_calc.yaml` ➡ `fx.yaml`**
 
 ```yaml
+schemaVersion: 1
 rates:
   EURDKK: 7.46
+  USD_EUR: 0.92
 ```
 
-**order.yaml**
+**`order_calc.yaml` ➡ `order.yaml`**
 
 ```yaml
+schemaVersion: 1
 order:
   qty: 3
   price_eur: 100
 
-  total_eur: expr(order.qty * order.price_eur)
-  total_eur_value: 0
+  total_eur_calc: order.qty * order.price_eur
+  total_dkk_calc: round(ref("./fx.yaml#/rates/EURDKK") * order.total_eur, 2)
 
-  total_dkk: expr(round(ref("./fx.yaml#/rates/EURDKK") * order.total_eur_value, 2))
-  total_dkk_value: 0
+summary:
+  label: Order total (DKK)
+  shown_value_calc: ref("#/order/total_dkk")
 ```
 
-After running the engine:
+Running the engine produces:
 
 ```yaml
+schemaVersion: 1
 order:
   qty: 3
   price_eur: 100
-  total_eur: expr(order.qty * order.price_eur)
-  total_eur_value: 300
-  total_dkk: expr(round(ref("./fx.yaml#/rates/EURDKK") * order.total_eur_value, 2))
-  total_dkk_value: 2238
+  total_eur: 300
+  total_dkk: 2238
+summary:
+  label: Order total (DKK)
+  shown_value: 2238
 ```
 
 ---
 
 ## Notes
 
-* Always put the formula in `expr(...)` and the result in the sibling with `_value`.
-* Only the `_value` fields are overwritten; formulas remain untouched.
+* All calculations live in `_calc` files; the generated `.yaml` output never contains formulas.
+* Calc files are treated as the source of truth and are never modified by the engine.
 * Cycles are detected and reported as errors.
-* Plain fields (constants, strings, etc.) are left alone.
+* Plain fields (constants, strings, etc.) pass through untouched.

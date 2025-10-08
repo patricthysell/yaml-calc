@@ -1,0 +1,9 @@
+schemaVersion: 1
+order:
+  qty: 136
+  unit_price_eur: 19.99
+  revenue_eur_calc: order.qty * order.unit_price_eur
+  revenue_dkk_calc: round(ref("./fx.yaml#/rates/EURDKK") * order.revenue_eur, 2)
+summary:
+  label: Order total (DKK)
+  shown_value_calc: ref("#/order/revenue_dkk")

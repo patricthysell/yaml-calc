@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "watch": "ts-node src/index.ts --watch"
+    "watch": "ts-node src/index.ts --watch",
+    "test": "npm run build && node --test dist/__tests__/**/*.test.js"
   },
   "dependencies": {
     "chokidar": "^3.6.0",

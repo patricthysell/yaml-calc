@@ -1,7 +1,7 @@
 import { HandlerRegistry } from "./engine/Registry";
 import { Engine } from "./engine/Engine";
 import { RefHandler } from "./handlers/RefHandler";
-import { ExprHandler } from "./handlers/ExprHandler";
+import { CalcHandler } from "./handlers/CalcHandler";
 import { globby } from "globby";
 import chokidar from "chokidar";
 import path from "node:path";
@@ -12,9 +12,9 @@ const WATCH = argv.has("--watch");
 async function runOnce() {
   const registry = new HandlerRegistry();
   registry.register(new RefHandler());
-  registry.register(new ExprHandler());
+  registry.register(new CalcHandler());
 
-  const files = await globby(["data/**/*.yaml", "!**/node_modules/**"]);
+  const files = await globby(["data/**/*_calc.yaml"]);
   const engine = new Engine(registry);
   await engine.loadFiles(files);
   const changed = await engine.recalcAll();
@@ -27,7 +27,7 @@ async function runOnce() {
   if (!WATCH) return;
 
   console.log("Watching for changes…");
-  const watcher = chokidar.watch("data/**/*.yaml", { ignoreInitial: true });
+  const watcher = chokidar.watch("data/**/*_calc.yaml", { ignoreInitial: true });
   watcher.on("add", async f => {
     await engine.reloadFile(path.resolve(f));
     await engine.recalcAll();
