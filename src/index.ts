@@ -46,6 +46,32 @@ function parseArgs(argv: string[]): CliOptions {
 
 const options = parseArgs(process.argv.slice(2));
 
+function computeWatchPatterns(pattern: string): string[] {
+  const patterns = new Set<string>([pattern]);
+  const mdVariant = deriveMarkdownPattern(pattern);
+  if (mdVariant) patterns.add(mdVariant);
+  return Array.from(patterns);
+}
+
+function deriveMarkdownPattern(pattern: string): string | null {
+  if (/_calc\.ya?ml/i.test(pattern)) {
+    return pattern.replace(/_calc\.ya?ml/gi, "_calc.md");
+  }
+  if (/\.ya?ml/i.test(pattern)) {
+    return pattern.replace(/\.ya?ml/gi, ".md");
+  }
+  return null;
+}
+
+function logChangedFiles(prefix: string, files: string[]) {
+  if (!files.length) {
+    console.log(`${prefix}: (no changes)`);
+    return;
+  }
+  const rel = files.map(f => path.relative(process.cwd(), f));
+  console.log(`${prefix}:`, rel);
+}
+
 async function runOnce(pattern: string) {
   const registry = new HandlerRegistry();
   registry.register(new RefHandler());
@@ -58,31 +84,51 @@ async function runOnce(pattern: string) {
   const engine = new Engine(registry);
   await engine.loadFiles(files);
   const changed = await engine.recalcAll();
-  console.log("Recalculated files:", changed.map(f => path.relative(process.cwd(), f)));
+  logChangedFiles("Recalculated files", changed);
   return engine;
 }
 
 (async () => {
   console.log(`Using pattern: ${options.pattern}`);
-  const engine = await runOnce(options.pattern);
+  let engine = await runOnce(options.pattern);
   if (!options.watch) return;
 
   console.log("Watching for changes…");
-  const watcher = chokidar.watch(options.pattern, { ignoreInitial: true });
+  const watchPatterns = computeWatchPatterns(options.pattern);
+  const watcher = chokidar.watch(watchPatterns, { ignoreInitial: true });
   watcher.on("add", async f => {
-    await engine.reloadFile(path.resolve(f));
-    await engine.recalcAll();
+    const abs = path.resolve(f);
+    if (abs.match(/_calc\.md$/i)) {
+      const output = await engine.applyMarkdownTemplate(abs);
+      logChangedFiles("Rendered markdown", output ? [output] : []);
+      return;
+    }
+    await engine.reloadFile(abs);
+    const changed = await engine.recalcAll();
+    logChangedFiles("Recalculated files", changed);
     console.log("Added:", f);
   });
   watcher.on("change", async f => {
-    await engine.reloadFile(path.resolve(f));
-    await engine.recalcAll();
+    const abs = path.resolve(f);
+    if (abs.match(/_calc\.md$/i)) {
+      const output = await engine.applyMarkdownTemplate(abs);
+      logChangedFiles("Rendered markdown", output ? [output] : []);
+      return;
+    }
+    await engine.reloadFile(abs);
+    const changed = await engine.recalcAll();
+    logChangedFiles("Recalculated files", changed);
     console.log("Changed:", f);
   });
   watcher.on("unlink", async f => {
-    // simple: rerun fully (you can optimize later)
+    const abs = path.resolve(f);
+    if (abs.match(/_calc\.md$/i)) {
+      await engine.removeMarkdownTemplate(abs);
+      console.log("Removed markdown template:", f);
+      return;
+    }
     console.log("Removed:", f);
-    await runOnce(options.pattern);
+    engine = await runOnce(options.pattern);
   });
 })().catch(err => {
   console.error(err);

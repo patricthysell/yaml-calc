@@ -88,6 +88,28 @@ Inside a `_calc` value you can use the following helpers in addition to normal J
 
 ---
 
+## Markdown templates
+
+Optionally pair any `_calc.yaml` with a `_calc.md` template. The engine copies the Markdown file, substitutes tables, and writes the sibling `.md` (e.g. `order_calc.md` → `order.md`). Plain Markdown (text, headings, code) is copied verbatim; only `{{table …}}` directives are expanded.
+
+Each table directive supports the following attributes:
+
+* `path` – **required.** Dot path or JSON Pointer into the generated YAML data (e.g. `order.items` or `#/order/qty`).
+* `columns` – Optional column definitions for array data. Provide a comma-separated list of `key:Label` pairs. When omitted, columns are inferred from object keys.
+* `mode` – Set to `kv` to force a key/value table. By default arrays render as row tables and objects render as key/value tables.
+* `keyLabel`, `valueLabel` – Override headers for key/value tables.
+
+Examples:
+
+```markdown
+{{table path="order.items" columns="sku:SKU,qty:Quantity,unit_price_eur:Unit Price (€)"}}
+{{table path="summary" mode="kv" keyLabel="Field" valueLabel="Value"}}
+```
+
+The repository includes `data/order_calc.md` → `data/order.md` as a reference template/output pair.
+
+---
+
 ## Recalculation & dependencies
 
 * The engine builds a **dependency graph** from your refs and identifiers.
